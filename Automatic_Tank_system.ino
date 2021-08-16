@@ -62,17 +62,8 @@ void setup() {
     Serial.write('/');
     Serial.print(tmYearToCalendar(tm1.Year));
     Serial.println();
-    for (int i = 0; i < 3; i++)
-    {
-      Serial.println("intial chime");
-      digitalWrite(buzzer, HIGH);                 // buzzer initializion chime (helps diagnose if the system is running properly)
-      delay(70);
-      digitalWrite(buzzer, LOW);
-      delay(70);
-    }
-
-
-  } else
+  } 
+  else
   {
     if (RTC.chipPresent())
     {
@@ -93,7 +84,7 @@ void setup() {
       Serial.println();
       for (int i = 0; i < 5; i++)
       {
-        digitalWrite(buzzer, HIGH);                 
+        digitalWrite(buzzer, HIGH);
         delay(500);
         digitalWrite(buzzer, LOW);
         delay(500);
