@@ -117,7 +117,7 @@ void loop() {
     run_today = false;
     date_today = tm.Day;
   }
-  if ((!run_today) && ((tm.Hour) >= start_time) && ((tm.Hour) < end_time))
+  if ((!run_today) && ((tm.Hour) >= start_time) && ((tm.Hour) < end_time))                      //function for turning on machine daily at the start of the day
   {
     while ((func_sen_val(pri_high_sen, digitalRead(pri_high_sen)) == empty) & (func_sen_val(sec_low_sen, digitalRead(sec_low_sen)) == full))
     {
