@@ -11,10 +11,13 @@
 #define pri_high_led A0
 #define interrupt_button 2
 #define start_time 8
-#define end_time 17
+#define end_time 19
 #define full LOW
 #define empty HIGH
 #define buzzer 3
+
+short date_today;       //stores todays date
+bool run_today = false; //flag showing if the motor turned on today.
 
 
 void setup() {
@@ -62,6 +65,9 @@ void setup() {
     Serial.write('/');
     Serial.print(tmYearToCalendar(tm1.Year));
     Serial.println();
+    date_today = int(tm1.Day);
+    Serial.print("Today Date:");
+    Serial.println(date_today);
   }
   else
   {
@@ -105,6 +111,26 @@ void loop() {
   digitalWrite(pri_high_led, !digitalRead(pri_high_sen));
 
   tmElements_t tm;
+
+  if (date_today != tm.Day)
+  {
+    run_today = false;
+    date_today = tm.Day;
+  }
+  if ((!run_today) && ((tm.Hour) >= start_time) && ((tm.Hour) < end_time))
+  {
+    while ((func_sen_val(pri_high_sen, digitalRead(pri_high_sen)) == empty) & (func_sen_val(sec_low_sen, digitalRead(sec_low_sen)) == full))
+    {
+      digitalWrite(motor_relay, HIGH);
+      Serial.println("motor started with daily 8AM");
+      digitalWrite(sec_low_led, !digitalRead(sec_low_sen));
+      digitalWrite(pri_low_led, !digitalRead(pri_low_sen));
+      digitalWrite(pri_high_led, !digitalRead(pri_high_sen));
+    }
+    digitalWrite(motor_relay, LOW);
+    run_today = true;
+  }
+
   if (RTC.read(tm))
   {
     if (((tm.Hour) >= start_time) && ((tm.Hour) < end_time))
