@@ -15,7 +15,7 @@
 #include <DS1307RTC.h>
 #include <EEPROM.h>
 
-#define MOTOR_RELAY 6
+#define MOTOR_RELAY 6                         //Pin declarations
 #define PRI_LOW_SEN 11
 #define PRI_HIGH_SEN 12
 #define SEC_LOW_SEN 10
@@ -29,13 +29,14 @@
 #define EMPTY HIGH
 #define BUZZER 3
 
-byte date_today_addr = 0;                     //declaring eeprom locations for saving motor run dates and status
+byte date_today_addr = 0;                     // Declaring eeprom locations for saving motor run dates and status
 byte run_today_addr = 1;
 bool force_run = false;
+bool fault= false;
 
 void setup() {
-  Serial.begin(9600);
-  while (!Serial) ; // wait for serial
+  Serial.begin(9600);                       // initialize serial 
+  while (!Serial);                          // Wait for serial
   Serial.println("Waiting for reset signal");
   pinMode(PRI_LOW_SEN, INPUT);
   pinMode(PRI_HIGH_SEN, INPUT);
@@ -73,7 +74,7 @@ void setup() {
     }
   }
 
-  if (resetTime)
+  if (resetTime)                    // if reset is requested , reset time to 12:00 PM 1st Jan 2025
   {
     tmElements_t tm_tmp;
     tm_tmp.Hour = 12;  // Set time to 12:00 PM
@@ -103,7 +104,8 @@ void setup() {
     Serial.println("DS1307RTC Read Test");
     Serial.println("-------------------");
 
-    if (RTC.read(tm_tmp)) {
+    if (RTC.read(tm_tmp))
+    {
       Serial.print("Ok, Time = ");
       print2digits(tm_tmp.Hour);
       Serial.write(':');
@@ -118,32 +120,31 @@ void setup() {
       Serial.print(tmYearToCalendar(tm_tmp.Year));
       Serial.println();
     }
-    else
-    {
-      if (RTC.chipPresent())
+    else if (RTC.chipPresent())
+    {                                   // Beep 3 times in setup time if RTC is present but not set
+      Serial.println("The DS1307 is stopped.  Please run the SetTime");
+      Serial.println("example to initialize the time and begin running.");
+      Serial.println();
+      fault = true;                     // Set fault flag if RTC not configured
+      for (byte i = 0; i < 3; i++)
       {
-        Serial.println("The DS1307 is stopped.  Please run the SetTime");
-        Serial.println("example to initialize the time and begin running.");
-        Serial.println();
-        for (byte i = 0; i < 3; i++)
-        {
-          digitalWrite(BUZZER, HIGH);
-          delay(500);
-          digitalWrite(BUZZER, LOW);
-          delay(500);
-        }
+        digitalWrite(BUZZER, HIGH);
+        delay(500);
+        digitalWrite(BUZZER, LOW);
+        delay(500);
       }
-      else
+    }
+    else
+    {                                // Beep 5 times in setup time if RTC is not present
+      Serial.println("DS1307 read error!  Please check the circuitry.");
+      Serial.println();
+      fault = true;                  // Set fault flag if RTC not present
+      for (byte i = 0; i < 5; i++)
       {
-        Serial.println("DS1307 read error!  Please check the circuitry.");
-        Serial.println();
-        for (byte i = 0; i < 5; i++)
-        {
-          digitalWrite(BUZZER, HIGH);
-          delay(500);
-          digitalWrite(BUZZER, LOW);
-          delay(500);
-        }
+        digitalWrite(BUZZER, HIGH);
+        delay(500);
+        digitalWrite(BUZZER, LOW);
+        delay(500);     
       }
     }
   }
@@ -158,7 +159,7 @@ void loop() {
   int eeprom_motor_run = EEPROM.read(run_today_addr);
   delay(1);
   Serial.println("Main Loop Entered\n\n");
-  Serial.println("EEPROM DATE");                        //displaying last motor run date and status here
+  Serial.println("EEPROM DATE");                               // Display last motor run date and status here
   Serial.println(eeprom_date);
   Serial.println();
   Serial.println("EEPROM STATUS");
@@ -166,11 +167,12 @@ void loop() {
   Serial.println();
 
   tmElements_t tm;
-  digitalWrite(SEC_LOW_LED, !digitalRead(SEC_LOW_SEN));        //leds show current sensor values
+  digitalWrite(SEC_LOW_LED, !digitalRead(SEC_LOW_SEN));        // LEDs show current sensor values
   digitalWrite(PRI_LOW_LED, !digitalRead(PRI_LOW_SEN));
   digitalWrite(PRI_HIGH_LED, !digitalRead(PRI_HIGH_SEN));
+  digitalWrite(LED_BUILTIN, fault);                            // Turn on built-in led incase of fault
 
-  // Check if force_run flag is set
+  // Check if force_run flag is set and start motor accordingly
   if (force_run)
   {
     Serial.println("Force run triggered");
@@ -186,7 +188,7 @@ void loop() {
     
     digitalWrite(MOTOR_RELAY, LOW);
     Serial.println("Motor stopped after force_run");
-    force_run = false; // Reset the flag after motor operation
+    force_run = false;                                        // Reset the flag after motor operation
   }
 
   if (RTC.read(tm))
@@ -195,7 +197,7 @@ void loop() {
     Serial.println(tm.Day);
     Serial.println();
 
-    if ((eeprom_date == tm.Day))                                   // function check if motor has been run today , turns it on at the start of the day incase it has not
+    if ((eeprom_date == tm.Day))                // function check if motor has been run today, turns it on at the start of the day incase it has not
     {
       if (((tm.Hour) >= START_TIME) && ((tm.Hour) < END_TIME))
       {
@@ -216,6 +218,7 @@ void loop() {
           EEPROM.update(run_today_addr, true);
           delay(1);
         }
+        // Keep checking the sensors to check for tank water shortage
         else if ((func_sen_val(PRI_HIGH_SEN, digitalRead(PRI_HIGH_SEN), 200) == EMPTY) && (func_sen_val(PRI_LOW_SEN, digitalRead(PRI_LOW_SEN), 200) == EMPTY))
         {
          while ((func_sen_val(PRI_HIGH_SEN, digitalRead(PRI_HIGH_SEN), 200) == EMPTY) && (func_sen_val(SEC_LOW_SEN, digitalRead(SEC_LOW_SEN), 200) == FULL))
@@ -234,6 +237,7 @@ void loop() {
     }
     else
     {
+      // Update the EEPROM date with RTC Date
       EEPROM.update(date_today_addr, tm.Day);
       delay(1);
       EEPROM.update(run_today_addr, false);
@@ -242,7 +246,12 @@ void loop() {
   }
   
   else
-  {
+  { // Run Motor if RTC not present with beeps to notify user
+    digitalWrite(BUZZER, HIGH);                         // Buzzer for RTC fault
+    delay(1000);
+    digitalWrite(BUZZER, LOW);
+    delay(1000);
+    fault = true;                                       // Set fault flag
     if ((func_sen_val(PRI_HIGH_SEN, digitalRead(PRI_HIGH_SEN), 200) == EMPTY) && (func_sen_val(PRI_LOW_SEN, digitalRead(PRI_LOW_SEN), 200) == EMPTY))       //seperate recursive function is used which double checks the sensor value and return it if they are equal
     {
       while ((func_sen_val(PRI_HIGH_SEN, digitalRead(PRI_HIGH_SEN), 200) == EMPTY) && (func_sen_val(SEC_LOW_SEN, digitalRead(SEC_LOW_SEN), 200) == FULL))        //even if RTC is not available or not working the system neglects the start and stop timing of the motor
@@ -252,20 +261,7 @@ void loop() {
         digitalWrite(SEC_LOW_LED, !digitalRead(SEC_LOW_SEN));
         digitalWrite(PRI_LOW_LED, !digitalRead(PRI_LOW_SEN));
         digitalWrite(PRI_HIGH_LED, !digitalRead(PRI_HIGH_SEN));
-        digitalWrite(BUZZER, HIGH);                         //buzzer for rtc fault
-        delay(1000);
-        digitalWrite(BUZZER, LOW);
-        delay(1000);
         Serial.println("RTC Error");
-
-        if (digitalRead(PRI_HIGH_SEN) == FULL)
-        {
-          Serial.write("Primary Tank FULL \n");
-        }
-        if (digitalRead(SEC_LOW_SEN) == EMPTY)
-        {
-          Serial.write("Secondary Tank LOW \n");
-        }
       }
       digitalWrite(MOTOR_RELAY, LOW);
       Serial.println("motor stopped (No RTC)");
