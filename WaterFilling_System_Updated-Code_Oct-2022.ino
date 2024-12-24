@@ -63,7 +63,7 @@ void setup() {
   bool resetTime = false;
   unsigned long startTime = millis();
 
-  // Check if the reset bbutton is pressed for 2 seconds within the first 5 seconds
+  // Check if the reset button is pressed for 2 seconds within the first 5 seconds
   while (millis() - startTime < 5000)
   {
     if (func_sen_val(INTERRUPT_BUTTON, digitalRead(INTERRUPT_BUTTON), 2000) == LOW)
@@ -125,6 +125,13 @@ void setup() {
         Serial.println("The DS1307 is stopped.  Please run the SetTime");
         Serial.println("example to initialize the time and begin running.");
         Serial.println();
+        for (byte i = 0; i < 3; i++)
+        {
+          digitalWrite(BUZZER, HIGH);
+          delay(500);
+          digitalWrite(BUZZER, LOW);
+          delay(500);
+        }
       }
       else
       {
@@ -138,7 +145,6 @@ void setup() {
           delay(500);
         }
       }
-      delay(1000);
     }
   }
   // Attach interrupt after setup logic
@@ -147,13 +153,16 @@ void setup() {
 
 void loop() {
 
-  Serial.println("Main Loop Entered");
-  Serial.println();
+  int eeprom_date = EEPROM.read(date_today_addr);
+  delay(1);
+  int eeprom_motor_run = EEPROM.read(run_today_addr);
+  delay(1);
+  Serial.println("Main Loop Entered\n\n");
   Serial.println("EEPROM DATE");                        //displaying last motor run date and status here
-  Serial.println(EEPROM.read(date_today_addr));
+  Serial.println(eeprom_date);
   Serial.println();
   Serial.println("EEPROM STATUS");
-  Serial.println(EEPROM.read(run_today_addr));
+  Serial.println(eeprom_motor_run);
   Serial.println();
 
   tmElements_t tm;
@@ -165,15 +174,14 @@ void loop() {
   if (force_run)
   {
     Serial.println("Force run triggered");
-    while ((func_sen_val(PRI_HIGH_SEN, digitalRead(PRI_HIGH_SEN), 200) == EMPTY) && 
-           (func_sen_val(SEC_LOW_SEN, digitalRead(SEC_LOW_SEN), 200) == FULL)) 
+    while ((func_sen_val(PRI_HIGH_SEN, digitalRead(PRI_HIGH_SEN), 200) == EMPTY) && (func_sen_val(SEC_LOW_SEN, digitalRead(SEC_LOW_SEN), 200) == FULL)) 
     {
       digitalWrite(MOTOR_RELAY, HIGH);
       Serial.println("Motor started by force_run");
       digitalWrite(SEC_LOW_LED, !digitalRead(SEC_LOW_SEN));
       digitalWrite(PRI_LOW_LED, !digitalRead(PRI_LOW_SEN));
       digitalWrite(PRI_HIGH_LED, !digitalRead(PRI_HIGH_SEN));
-      delay(1000);
+      delay(5000);
     }
     
     digitalWrite(MOTOR_RELAY, LOW);
@@ -183,27 +191,45 @@ void loop() {
 
   if (RTC.read(tm))
   {
-    Serial.print("Today Date:");
+    Serial.print("Today RTC Date:");
     Serial.println(tm.Day);
     Serial.println();
 
-    if ((EEPROM.read(date_today_addr) == tm.Day))                                   // function check if motor has been run today , turns it on at the start of the day incase it has not
+    if ((eeprom_date == tm.Day))                                   // function check if motor has been run today , turns it on at the start of the day incase it has not
     {
-      if (!(EEPROM.read(run_today_addr)) && ((tm.Hour) >= START_TIME) && ((tm.Hour) < END_TIME))
+      if (((tm.Hour) >= START_TIME) && ((tm.Hour) < END_TIME))
       {
-        while ((func_sen_val(PRI_HIGH_SEN, digitalRead(PRI_HIGH_SEN), 200) == EMPTY) && (func_sen_val(SEC_LOW_SEN, digitalRead(SEC_LOW_SEN), 200) == FULL))
+        if (!eeprom_motor_run)
         {
-          digitalWrite(MOTOR_RELAY, HIGH);
-          Serial.println("motor started with daily 8AM");
-          digitalWrite(SEC_LOW_LED, !digitalRead(SEC_LOW_SEN));
-          digitalWrite(PRI_LOW_LED, !digitalRead(PRI_LOW_SEN));
-          digitalWrite(PRI_HIGH_LED, !digitalRead(PRI_HIGH_SEN));
-          delay(1000);
+          while ((func_sen_val(PRI_HIGH_SEN, digitalRead(PRI_HIGH_SEN), 200) == EMPTY) && (func_sen_val(SEC_LOW_SEN, digitalRead(SEC_LOW_SEN), 200) == FULL))
+          {
+            digitalWrite(MOTOR_RELAY, HIGH);
+            Serial.println("8AM Daily motor started (RTC)");
+            digitalWrite(SEC_LOW_LED, !digitalRead(SEC_LOW_SEN));
+            digitalWrite(PRI_LOW_LED, !digitalRead(PRI_LOW_SEN));
+            digitalWrite(PRI_HIGH_LED, !digitalRead(PRI_HIGH_SEN));
+            delay(5000);
+          }
+          digitalWrite(MOTOR_RELAY, LOW);
+          Serial.println("8AM Daily motor stopped (RTC)");
+          EEPROM.update(date_today_addr, tm.Day);
+          EEPROM.update(run_today_addr, true);
+          delay(1);
         }
-        digitalWrite(MOTOR_RELAY, LOW);
-        Serial.println("motor stopped with RTC");
-        EEPROM.update(run_today_addr, true);
-        delay(1);
+        else if ((func_sen_val(PRI_HIGH_SEN, digitalRead(PRI_HIGH_SEN), 200) == EMPTY) && (func_sen_val(PRI_LOW_SEN, digitalRead(PRI_LOW_SEN), 200) == EMPTY))
+        {
+         while ((func_sen_val(PRI_HIGH_SEN, digitalRead(PRI_HIGH_SEN), 200) == EMPTY) && (func_sen_val(SEC_LOW_SEN, digitalRead(SEC_LOW_SEN), 200) == FULL))
+          {
+            digitalWrite(MOTOR_RELAY, HIGH);
+            Serial.println("motor started due to low water level (RTC)");
+            digitalWrite(SEC_LOW_LED, !digitalRead(SEC_LOW_SEN));
+            digitalWrite(PRI_LOW_LED, !digitalRead(PRI_LOW_SEN));
+            digitalWrite(PRI_HIGH_LED, !digitalRead(PRI_HIGH_SEN));
+            delay(5000);
+          }
+          digitalWrite(MOTOR_RELAY, LOW);
+          Serial.println("motor stopped due to water level full (RTC)");
+        }
       }
     }
     else
@@ -211,17 +237,18 @@ void loop() {
       EEPROM.update(date_today_addr, tm.Day);
       delay(1);
       EEPROM.update(run_today_addr, false);
+      delay(1);
     }
   }
   
   else
   {
-    if (func_sen_val(PRI_LOW_SEN, digitalRead(PRI_LOW_SEN), 200) == EMPTY)       //seperate recursive function is used which double checks the sensor value and return it if they are equal
+    if ((func_sen_val(PRI_HIGH_SEN, digitalRead(PRI_HIGH_SEN), 200) == EMPTY) && (func_sen_val(PRI_LOW_SEN, digitalRead(PRI_LOW_SEN), 200) == EMPTY))       //seperate recursive function is used which double checks the sensor value and return it if they are equal
     {
       while ((func_sen_val(PRI_HIGH_SEN, digitalRead(PRI_HIGH_SEN), 200) == EMPTY) && (func_sen_val(SEC_LOW_SEN, digitalRead(SEC_LOW_SEN), 200) == FULL))        //even if RTC is not available or not working the system neglects the start and stop timing of the motor
       {
         digitalWrite(MOTOR_RELAY, HIGH);
-        Serial.println("motor started without RTC");
+        Serial.println("motor started (No RTC)");
         digitalWrite(SEC_LOW_LED, !digitalRead(SEC_LOW_SEN));
         digitalWrite(PRI_LOW_LED, !digitalRead(PRI_LOW_SEN));
         digitalWrite(PRI_HIGH_LED, !digitalRead(PRI_HIGH_SEN));
@@ -241,7 +268,7 @@ void loop() {
         }
       }
       digitalWrite(MOTOR_RELAY, LOW);
-      Serial.println("motor stopped no RTC");
+      Serial.println("motor stopped (No RTC)");
     }
   }
   delay(2000);
