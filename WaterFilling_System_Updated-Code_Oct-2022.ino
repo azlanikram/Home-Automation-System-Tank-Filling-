@@ -195,6 +195,14 @@ void loop() {
       digitalWrite(PRI_LOW_LED, !digitalRead(PRI_LOW_SEN));
       digitalWrite(PRI_HIGH_LED, !digitalRead(PRI_HIGH_SEN));
       delay(5000);
+      if (digitalRead(PRI_HIGH_SEN) == FULL)
+      {
+        Serial.write("Primary Tank FULL \n");
+      }
+      if (digitalRead(SEC_LOW_SEN) == EMPTY)
+      {
+        Serial.write("Secondary Tank LOW \n");
+      }
     }
     
     digitalWrite(MOTOR_RELAY, LOW);
@@ -222,6 +230,14 @@ void loop() {
             digitalWrite(PRI_LOW_LED, !digitalRead(PRI_LOW_SEN));
             digitalWrite(PRI_HIGH_LED, !digitalRead(PRI_HIGH_SEN));
             delay(5000);
+            if (digitalRead(PRI_HIGH_SEN) == FULL)
+            {
+              Serial.write("Primary Tank FULL \n");
+            }
+            if (digitalRead(SEC_LOW_SEN) == EMPTY)
+            {
+              Serial.write("Secondary Tank LOW \n");
+            }
           }
           digitalWrite(MOTOR_RELAY, LOW);
           Serial.println("8AM Daily motor stopped (RTC)");
@@ -240,6 +256,14 @@ void loop() {
             digitalWrite(PRI_LOW_LED, !digitalRead(PRI_LOW_SEN));
             digitalWrite(PRI_HIGH_LED, !digitalRead(PRI_HIGH_SEN));
             delay(5000);
+            if (digitalRead(PRI_HIGH_SEN) == FULL)
+            {
+              Serial.write("Primary Tank FULL \n");
+            }
+            if (digitalRead(SEC_LOW_SEN) == EMPTY)
+            {
+              Serial.write("Secondary Tank LOW \n");
+            }
           }
           digitalWrite(MOTOR_RELAY, LOW);
           Serial.println("motor stopped due to water level full (RTC)");
@@ -273,6 +297,15 @@ void loop() {
         digitalWrite(PRI_LOW_LED, !digitalRead(PRI_LOW_SEN));
         digitalWrite(PRI_HIGH_LED, !digitalRead(PRI_HIGH_SEN));
         Serial.println("RTC Error");
+        delay(5000);
+        if (digitalRead(PRI_HIGH_SEN) == FULL)
+        {
+          Serial.write("Primary Tank FULL \n");
+        }
+        if (digitalRead(SEC_LOW_SEN) == EMPTY)
+        {
+          Serial.write("Secondary Tank LOW \n");
+        }
       }
       digitalWrite(MOTOR_RELAY, LOW);
       Serial.println("motor stopped (No RTC)");
