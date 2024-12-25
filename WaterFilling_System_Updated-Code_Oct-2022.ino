@@ -37,6 +37,16 @@ bool fault= false;
 void setup() {
   Serial.begin(9600);                       // initialize serial 
   while (!Serial);                          // Wait for serial
+  // Firmware information
+  String firmwareVersion = "1.0.0";         // Example firmware version
+  String firmwareDate = __DATE__;           // Predefined macro for compile date
+  String firmwareTime = __TIME__;           // Predefined macro for compile time
+
+  // Print firmware and serial number details
+  Serial.println("Firmware Version: " + firmwareVersion);
+  Serial.println("Firmware Build Date: " + firmwareDate);
+  Serial.println("Firmware Build Time: " + firmwareTime);
+  
   Serial.println("Waiting for reset signal");
   pinMode(PRI_LOW_SEN, INPUT);
   pinMode(PRI_HIGH_SEN, INPUT);
@@ -96,6 +106,7 @@ void setup() {
     else
     {
       Serial.println("Failed to reset time!");
+      fault = true;
     }
   }
   else
