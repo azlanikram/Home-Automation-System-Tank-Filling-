@@ -38,7 +38,7 @@ void setup() {
   Serial.begin(9600);                       // initialize serial 
   while (!Serial);                          // Wait for serial
   // Firmware information
-  String firmwareVersion = "1.0.0";         // Example firmware version
+  String firmwareVersion = "1.0.1";         // Example firmware version
   String firmwareDate = __DATE__;           // Predefined macro for compile date
   String firmwareTime = __TIME__;           // Predefined macro for compile time
 
@@ -187,25 +187,8 @@ void loop() {
   if (force_run)
   {
     Serial.println("Force run triggered");
-    while ((func_sen_val(PRI_HIGH_SEN, digitalRead(PRI_HIGH_SEN), 200) == EMPTY) && (func_sen_val(SEC_LOW_SEN, digitalRead(SEC_LOW_SEN), 200) == FULL)) 
-    {
-      digitalWrite(MOTOR_RELAY, HIGH);
-      Serial.println("Motor started by force_run");
-      digitalWrite(SEC_LOW_LED, !digitalRead(SEC_LOW_SEN));
-      digitalWrite(PRI_LOW_LED, !digitalRead(PRI_LOW_SEN));
-      digitalWrite(PRI_HIGH_LED, !digitalRead(PRI_HIGH_SEN));
-      delay(5000);
-      if (digitalRead(PRI_HIGH_SEN) == FULL)
-      {
-        Serial.write("Primary Tank FULL \n");
-      }
-      if (digitalRead(SEC_LOW_SEN) == EMPTY)
-      {
-        Serial.write("Secondary Tank LOW \n");
-      }
-    }
-    
-    digitalWrite(MOTOR_RELAY, LOW);
+    Serial.println("Motor started by force_run");
+    run_motor();
     Serial.println("Motor stopped after force_run");
     force_run = false;                                        // Reset the flag after motor operation
   }
@@ -222,50 +205,19 @@ void loop() {
       {
         if (!eeprom_motor_run)
         {
-          while ((func_sen_val(PRI_HIGH_SEN, digitalRead(PRI_HIGH_SEN), 200) == EMPTY) && (func_sen_val(SEC_LOW_SEN, digitalRead(SEC_LOW_SEN), 200) == FULL))
-          {
-            digitalWrite(MOTOR_RELAY, HIGH);
-            Serial.println("8AM Daily motor started (RTC)");
-            digitalWrite(SEC_LOW_LED, !digitalRead(SEC_LOW_SEN));
-            digitalWrite(PRI_LOW_LED, !digitalRead(PRI_LOW_SEN));
-            digitalWrite(PRI_HIGH_LED, !digitalRead(PRI_HIGH_SEN));
-            delay(5000);
-            if (digitalRead(PRI_HIGH_SEN) == FULL)
-            {
-              Serial.write("Primary Tank FULL \n");
-            }
-            if (digitalRead(SEC_LOW_SEN) == EMPTY)
-            {
-              Serial.write("Secondary Tank LOW \n");
-            }
-          }
-          digitalWrite(MOTOR_RELAY, LOW);
+          Serial.println("8AM Daily motor started (RTC)");
+          run_motor();
           Serial.println("8AM Daily motor stopped (RTC)");
           EEPROM.update(date_today_addr, tm.Day);
+          delay(1);
           EEPROM.update(run_today_addr, true);
           delay(1);
         }
         // Keep checking the sensors to check for tank water shortage
         else if ((func_sen_val(PRI_HIGH_SEN, digitalRead(PRI_HIGH_SEN), 200) == EMPTY) && (func_sen_val(PRI_LOW_SEN, digitalRead(PRI_LOW_SEN), 200) == EMPTY))
         {
-         while ((func_sen_val(PRI_HIGH_SEN, digitalRead(PRI_HIGH_SEN), 200) == EMPTY) && (func_sen_val(SEC_LOW_SEN, digitalRead(SEC_LOW_SEN), 200) == FULL))
-          {
-            digitalWrite(MOTOR_RELAY, HIGH);
-            Serial.println("motor started due to low water level (RTC)");
-            digitalWrite(SEC_LOW_LED, !digitalRead(SEC_LOW_SEN));
-            digitalWrite(PRI_LOW_LED, !digitalRead(PRI_LOW_SEN));
-            digitalWrite(PRI_HIGH_LED, !digitalRead(PRI_HIGH_SEN));
-            delay(5000);
-            if (digitalRead(PRI_HIGH_SEN) == FULL)
-            {
-              Serial.write("Primary Tank FULL \n");
-            }
-            if (digitalRead(SEC_LOW_SEN) == EMPTY)
-            {
-              Serial.write("Secondary Tank LOW \n");
-            }
-          }
-          digitalWrite(MOTOR_RELAY, LOW);
+          Serial.println("motor started due to low water level (RTC)");
+          run_motor();
           Serial.println("motor stopped due to water level full (RTC)");
         }
       }
@@ -286,28 +238,12 @@ void loop() {
     delay(1000);
     digitalWrite(BUZZER, LOW);
     delay(1000);
+    Serial.println("RTC Error");
     fault = true;                                       // Set fault flag
     if ((func_sen_val(PRI_HIGH_SEN, digitalRead(PRI_HIGH_SEN), 200) == EMPTY) && (func_sen_val(PRI_LOW_SEN, digitalRead(PRI_LOW_SEN), 200) == EMPTY))       //seperate recursive function is used which double checks the sensor value and return it if they are equal
     {
-      while ((func_sen_val(PRI_HIGH_SEN, digitalRead(PRI_HIGH_SEN), 200) == EMPTY) && (func_sen_val(SEC_LOW_SEN, digitalRead(SEC_LOW_SEN), 200) == FULL))        //even if RTC is not available or not working the system neglects the start and stop timing of the motor
-      {
-        digitalWrite(MOTOR_RELAY, HIGH);
-        Serial.println("motor started (No RTC)");
-        digitalWrite(SEC_LOW_LED, !digitalRead(SEC_LOW_SEN));
-        digitalWrite(PRI_LOW_LED, !digitalRead(PRI_LOW_SEN));
-        digitalWrite(PRI_HIGH_LED, !digitalRead(PRI_HIGH_SEN));
-        Serial.println("RTC Error");
-        delay(5000);
-        if (digitalRead(PRI_HIGH_SEN) == FULL)
-        {
-          Serial.write("Primary Tank FULL \n");
-        }
-        if (digitalRead(SEC_LOW_SEN) == EMPTY)
-        {
-          Serial.write("Secondary Tank LOW \n");
-        }
-      }
-      digitalWrite(MOTOR_RELAY, LOW);
+      Serial.println("motor started (No RTC)");
+      run_motor();
       Serial.println("motor stopped (No RTC)");
     }
   }
@@ -343,4 +279,25 @@ void print2digits(int number)
     Serial.write('0');
   }
   Serial.print(number);
+}
+
+void run_motor()
+{
+  while ((func_sen_val(PRI_HIGH_SEN, digitalRead(PRI_HIGH_SEN), 200) == EMPTY) && (func_sen_val(SEC_LOW_SEN, digitalRead(SEC_LOW_SEN), 200) == FULL))        //even if RTC is not available or not working the system neglects the start and stop timing of the motor
+  {
+    digitalWrite(MOTOR_RELAY, HIGH);
+    digitalWrite(SEC_LOW_LED, !digitalRead(SEC_LOW_SEN));
+    digitalWrite(PRI_LOW_LED, !digitalRead(PRI_LOW_SEN));
+    digitalWrite(PRI_HIGH_LED, !digitalRead(PRI_HIGH_SEN));
+    delay(5000);
+    if (digitalRead(PRI_HIGH_SEN) == FULL)
+    {
+      Serial.write("Primary Tank FULL \n");
+    }
+    if (digitalRead(SEC_LOW_SEN) == EMPTY)
+    {
+      Serial.write("Secondary Tank LOW \n");
+    }
+  }
+  digitalWrite(MOTOR_RELAY, LOW);
 }
