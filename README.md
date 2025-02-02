@@ -6,6 +6,12 @@ Time Library    Link (https://github.com/PaulStoffregen/Time)
 
 DS1307 Library  Link (https://github.com/PaulStoffregen/DS1307RTC)
 
+## PCB Schematic
+![PCB SCHEMATIC](https://github.com/user-attachments/assets/3deef430-8bdb-4d61-8ca4-91ad1f637b9d)
+
+## PCB Design
+![PCB](https://github.com/user-attachments/assets/143c676d-a189-4f1a-9cd4-b9be6b26f535)
+
 ## PCB Front
 ![IMG_0440](https://github.com/user-attachments/assets/0f639a8b-d13c-4009-9a93-e9c74eac92e7)
 
